@@ -5,6 +5,7 @@ import (
 
 	"github.com/SaurishD/osquery_monitor/internal/api"
 	"github.com/SaurishD/osquery_monitor/internal/db"
+	"github.com/SaurishD/osquery_monitor/internal/middleware"
 	"github.com/SaurishD/osquery_monitor/internal/osquery"
 	"github.com/gin-gonic/gin"
 	"github.com/robfig/cron/v3"
@@ -50,6 +51,7 @@ func main() {
 	c.Start()
 
 	router := gin.Default()
+	router.Use(middleware.CORSMiddleware())
 	router.GET("/latest_data", api.GetLatestData)
 	if err := router.Run(":8080"); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
