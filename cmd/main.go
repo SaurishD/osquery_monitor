@@ -15,8 +15,7 @@ func main() {
 
 	c := cron.New()
 
-	// Runs every 30 seconds
-	_, err := c.AddFunc("@every 30s", func() {
+	updateSnapshot := func() {
 		osInfo, err := osquery.GetOSInfo()
 		if err != nil {
 			log.Printf("Error getting OS info: %v", err)
@@ -40,7 +39,10 @@ func main() {
 		} else {
 			log.Println("Snapshot saved successfully.")
 		}
-	})
+	}
+	updateSnapshot()
+	// Runs every 30 seconds
+	_, err := c.AddFunc("@every 30s", updateSnapshot)
 	if err != nil {
 		log.Fatalf("Failed to schedule cron job: %v", err)
 	}
