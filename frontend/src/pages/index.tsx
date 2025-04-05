@@ -1,8 +1,20 @@
-// app/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { Application, OSInfo, LatestData } from './types';
+import {
+  Box,
+  CircularProgress,
+  Container,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography
+} from '@mui/material';
 
 export default function HomePage() {
   const [osInfo, setOsInfo] = useState<OSInfo | null>(null);
@@ -20,40 +32,73 @@ export default function HomePage() {
       .catch(console.error);
   }, []);
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
-    <main className="p-6">
-      <h1 className="text-xl font-bold mb-4">OS Information</h1>
-      <div className="mb-6">
-        <p><strong>Platform:</strong> {osInfo?.platform}</p>
-        <p><strong>Version:</strong> {osInfo?.version}</p>
-        <p><strong>Build:</strong> {osInfo?.build}</p>
-        <p><strong>Osquery Version:</strong> {osInfo?.osquery_version}</p>
-        {/* <p><strong>Timestamp:</strong> {new Date(osInfo?.timestamp).toLocaleString()}</p> */}
-      </div>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Typography variant="h4" gutterBottom fontWeight="bold">
+        OS Information
+      </Typography>
+      <Box mb={4}>
+        <Typography><strong>Platform:</strong> {osInfo?.platform}</Typography>
+        <Typography><strong>Version:</strong> {osInfo?.version}</Typography>
+        <Typography><strong>Build:</strong> {osInfo?.build}</Typography>
+        <Typography><strong>Osquery Version:</strong> {osInfo?.osquery_version}</Typography>
+        {/* <Typography><strong>Timestamp:</strong> {new Date(osInfo?.timestamp).toLocaleString()}</Typography> */}
+      </Box>
 
-      <h2 className="text-lg font-semibold mb-2">Applications</h2>
-      <table className="min-w-full border border-collapse border-gray-300">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="border px-4 py-2">ID</th>
-            <th className="border px-4 py-2">Path</th>
-            <th className="border px-4 py-2">Name</th>
-            <th className="border px-4 py-2">Version</th>
-          </tr>
-        </thead>
-        <tbody>
-          {apps.map(app => (
-            <tr key={`${app.id}-${app.path}`} className="hover:bg-gray-50">
-              <td className="border px-4 py-2">{app.id}</td>
-              <td className="border px-4 py-2">{app.path}</td>
-              <td className="border px-4 py-2">{app.name}</td>
-              <td className="border px-4 py-2">{app.version}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </main>
+      <Typography variant="h5" gutterBottom fontWeight="medium">
+        Applications
+      </Typography>
+
+      <TableContainer
+  component={Paper}
+  sx={{
+    maxHeight: 400,
+    bgcolor: '#1e1e1e', // table background
+  }}
+>
+  <Table stickyHeader size="small" sx={{ minWidth: 650 }}>
+    <TableHead>
+      <TableRow sx={{ bgcolor: '#121212' }}>
+        {['ID', 'Path', 'Name', 'Version'].map((header) => (
+          <TableCell
+            key={header}
+            sx={{ color: '#ffffff', fontWeight: 'bold', bgcolor: '#121212' }}
+          >
+            {header}
+          </TableCell>
+        ))}
+      </TableRow>
+    </TableHead>
+    <TableBody>
+      {apps.map((app, index) => (
+        <TableRow
+          key={`${app.id}-${app.path}`}
+          sx={{
+            bgcolor: index % 2 === 0 ? '#2a2a2a' : '#1e1e1e',
+            '&:hover': {
+              backgroundColor: '#333333',
+            },
+          }}
+        >
+          <TableCell sx={{ color: '#e0e0e0' }}>{app.id}</TableCell>
+          <TableCell sx={{ color: '#e0e0e0', wordBreak: 'break-word' }}>{app.path}</TableCell>
+          <TableCell sx={{ color: '#e0e0e0' }}>{app.name}</TableCell>
+          <TableCell sx={{ color: '#e0e0e0' }}>{app.version}</TableCell>
+        </TableRow>
+      ))}
+    </TableBody>
+  </Table>
+</TableContainer>
+
+
+    </Container>
   );
 }
