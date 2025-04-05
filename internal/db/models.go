@@ -12,8 +12,8 @@ type OSInfo struct {
 }
 
 type Application struct {
-	ID      int    `json:"id" gorm:"primaryKey"`
-	Path    int    `json:"path" gorm:"primaryKey"`
+	ID      string `json:"id" gorm:"primaryKey"`
+	Path    string `json:"path" gorm:"primaryKey"`
 	Name    string `json:"name"`
 	Version string `json:"version"`
 }

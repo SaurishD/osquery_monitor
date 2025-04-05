@@ -37,5 +37,5 @@ func GetOsqueryVersion() (map[string]string, error) {
 
 func GetInstalledApps() ([]map[string]string, error) {
 	// Use best available table for your OS
-	return runQuery("SELECT bundle_identifier as id, display_name as name, bundle_version as version, path  from apps limit 1;")
+	return runQuery("SELECT bundle_identifier as id, display_name as name, bundle_version as version, path from apps limit 1;")
 }

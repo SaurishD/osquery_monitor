@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	database := db.Init() // connect to DB
+	db.Init() // connect to DB
 
 	c := cron.New()
 
@@ -35,7 +35,7 @@ func main() {
 			return
 		}
 
-		if err := db.InsertLatestSnapshot(database, osInfo, osqVer, apps); err != nil {
+		if err := db.InsertLatestSnapshot(osInfo, osqVer, apps); err != nil {
 			log.Printf("Error inserting snapshot: %v", err)
 		} else {
 			log.Println("Snapshot saved successfully.")

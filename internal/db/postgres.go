@@ -1,117 +1,95 @@
 package db
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"os"
+	"time"
+
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
+var db *gorm.DB
+
 // Init initializes the database connection
-func Init() *sql.DB {
+func Init() {
 	err := godotenv.Load(".env") // or just godotenv.Load() if it's in root
 	if err != nil {
 		log.Fatalf("Error loading .env file")
 	}
 	connStr := getDatabaseURL()
 
-	db, err := sql.Open("postgres", connStr)
+	db, err := gorm.Open(postgres.Open(connStr), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("Error connecting to the database: %v", err)
+		log.Fatalf("failed to connect database: %v", err)
 	}
-
-	if err = db.Ping(); err != nil {
-		log.Fatalf("Error pinging the database: %v", err)
+	err = db.AutoMigrate(&OSInfo{}, &Application{})
+	if err != nil {
+		log.Fatalf("Failed to migrate DB: %v", err)
 	}
-
-	return db
 }
 
-func InsertLatestSnapshot(db *sql.DB, osInfo map[string]string, osqueryVer map[string]string, apps []map[string]string) error {
-	tx, err := db.Begin()
-	if err != nil {
-		return err
+func InsertLatestSnapshot(osInfo map[string]string, osqueryVer map[string]string, apps []map[string]string) error {
+	// Start transaction
+	tx := db.Begin()
+	if tx.Error != nil {
+		return tx.Error
 	}
-	defer tx.Rollback()
 
-	// Insert OS Info
-	var osInfoID int
-	err = tx.QueryRow(`INSERT INTO os_info (platform, version, build, osquery_version, timestamp)
-        VALUES ($1, $2, $3, $4, NOW()) RETURNING id`,
-		osInfo["platform"], osInfo["version"], osInfo["build"], osqueryVer["version"]).Scan(&osInfoID)
-	if err != nil {
+	// Insert OSInfo
+	newOS := OSInfo{
+		Platform:   osInfo["platform"],
+		Version:    osInfo["version"],
+		Build:      osInfo["build"],
+		OsqueryVer: osqueryVer["version"],
+		Timestamp:  time.Now(),
+	}
+
+	if err := tx.Create(&newOS).Error; err != nil {
+		tx.Rollback()
 		return err
 	}
 
 	// Insert Applications
 	for _, app := range apps {
-		_, err = tx.Exec(`INSERT INTO applications (name, version, os_info_id)
-            VALUES ($1, $2, $3)`, app["name"], app["version"], osInfoID)
-		if err != nil {
+		application := Application{
+			ID:      app["id"],
+			Name:    app["name"],
+			Version: app["version"],
+			Path:    app["path"],
+		}
+		if err := tx.Create(&application).Error; err != nil {
+			tx.Rollback()
 			return err
 		}
 	}
 
-	return tx.Commit()
+	// Commit transaction
+	return tx.Commit().Error
 }
 
 // FetchLatestSnapshot retrieves the most recent system snapshot
-func FetchLatestSnapshot() (map[string]string, []map[string]string, error) {
-	db := Init()
-	defer db.Close()
+func FetchLatestSnapshot() (OSInfo, []Application, error) {
 
 	// Get latest OS info
-	osInfo := make(map[string]string)
-	var platform, version, build, osqueryVersion string
-	err := db.QueryRow(`
-		SELECT platform, version, build, osquery_version 
-		FROM os_info 
-		ORDER BY timestamp DESC 
-		LIMIT 1
-	`).Scan(&platform, &version, &build, &osqueryVersion)
+	var latestOS OSInfo
+	err := db.Order("timestamp desc").First(&latestOS).Error
 	if err != nil {
-		return nil, nil, err
+		return latestOS, nil, err
 	}
-
-	osInfo["platform"] = platform
-	osInfo["version"] = version
-	osInfo["build"] = build
-	osInfo["osquery_version"] = osqueryVersion
 
 	// Get associated applications
-	rows, err := db.Query(`
-		SELECT name, version 
-		FROM applications 
-		WHERE os_info_id = (
-			SELECT id 
-			FROM os_info 
-			ORDER BY timestamp DESC 
-			LIMIT 1
-		)
-	`)
+	var appRecords []Application
+	err = db.Where("os_info_id = ?", latestOS.ID).Find(&appRecords).Error
 	if err != nil {
-		return nil, nil, err
-	}
-	defer rows.Close()
-
-	var apps []map[string]string
-	for rows.Next() {
-		var name, version string
-		err := rows.Scan(&name, &version)
-		if err != nil {
-			return nil, nil, err
-		}
-		app := map[string]string{
-			"name":    name,
-			"version": version,
-		}
-		apps = append(apps, app)
+		return latestOS, nil, err
 	}
 
-	return osInfo, apps, nil
+	return latestOS, appRecords, nil
 }
 
 func getDatabaseURL() string {
