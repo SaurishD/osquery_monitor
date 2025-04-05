@@ -8,6 +8,7 @@ import (
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -23,7 +24,7 @@ func Init() {
 	}
 	connStr := getDatabaseURL()
 
-	db, err := gorm.Open(postgres.Open(connStr), &gorm.Config{})
+	db, err = gorm.Open(postgres.Open(connStr), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("failed to connect database: %v", err)
 	}
@@ -31,6 +32,7 @@ func Init() {
 	if err != nil {
 		log.Fatalf("Failed to migrate DB: %v", err)
 	}
+
 }
 
 func InsertLatestSnapshot(osInfo map[string]string, osqueryVer map[string]string, apps []map[string]string) error {
@@ -62,7 +64,10 @@ func InsertLatestSnapshot(osInfo map[string]string, osqueryVer map[string]string
 			Version: app["version"],
 			Path:    app["path"],
 		}
-		if err := tx.Create(&application).Error; err != nil {
+		if err := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "id"}, {Name: "path"}},
+			DoUpdates: clause.AssignmentColumns([]string{"name", "version"}),
+		}).Create(&application).Error; err != nil {
 			tx.Rollback()
 			return err
 		}
@@ -84,7 +89,7 @@ func FetchLatestSnapshot() (OSInfo, []Application, error) {
 
 	// Get associated applications
 	var appRecords []Application
-	err = db.Where("os_info_id = ?", latestOS.ID).Find(&appRecords).Error
+	err = db.Find(&appRecords).Error
 	if err != nil {
 		return latestOS, nil, err
 	}
