@@ -2,18 +2,21 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
 // Init initializes the database connection
 func Init() *sql.DB {
-	connStr := os.Getenv("DATABASE_URL")
-	if connStr == "" {
-		connStr = "postgres://postgres:postgres@localhost:5432/osquery_monitor?sslmode=disable"
+	err := godotenv.Load(".env") // or just godotenv.Load() if it's in root
+	if err != nil {
+		log.Fatalf("Error loading .env file")
 	}
+	connStr := getDatabaseURL()
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -109,4 +112,14 @@ func FetchLatestSnapshot() (map[string]string, []map[string]string, error) {
 	}
 
 	return osInfo, apps, nil
+}
+
+func getDatabaseURL() string {
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	host := os.Getenv("DB_HOST")
+	port := os.Getenv("DB_PORT")
+	dbName := os.Getenv("DB_NAME")
+
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, password, host, port, dbName)
 }
