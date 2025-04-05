@@ -7,29 +7,45 @@ import (
 	"github.com/SaurishD/osquery_monitor/internal/db"
 	"github.com/SaurishD/osquery_monitor/internal/osquery"
 	"github.com/gin-gonic/gin"
+	"github.com/robfig/cron/v3"
 )
 
 func main() {
 	database := db.Init() // connect to DB
 
-	osInfo, err := osquery.GetOSInfo()
+	c := cron.New()
+
+	// Runs every 30 seconds
+	_, err := c.AddFunc("@every 30s", func() {
+		osInfo, err := osquery.GetOSInfo()
+		if err != nil {
+			log.Printf("Error getting OS info: %v", err)
+			return
+		}
+
+		osqVer, err := osquery.GetOsqueryVersion()
+		if err != nil {
+			log.Printf("Error getting osquery version: %v", err)
+			return
+		}
+
+		apps, err := osquery.GetInstalledApps()
+		if err != nil {
+			log.Printf("Error getting installed apps: %v", err)
+			return
+		}
+
+		if err := db.InsertLatestSnapshot(database, osInfo, osqVer, apps); err != nil {
+			log.Printf("Error inserting snapshot: %v", err)
+		} else {
+			log.Println("Snapshot saved successfully.")
+		}
+	})
 	if err != nil {
-		log.Fatalf("Failed to get OS info: %v", err)
+		log.Fatalf("Failed to schedule cron job: %v", err)
 	}
 
-	osqVer, err := osquery.GetOsqueryVersion()
-	if err != nil {
-		log.Fatalf("Failed to get osquery version: %v", err)
-	}
-
-	apps, err := osquery.GetInstalledApps()
-	if err != nil {
-		log.Fatalf("Failed to get installed apps: %v", err)
-	}
-
-	if err := db.InsertLatestSnapshot(database, osInfo, osqVer, apps); err != nil {
-		log.Fatalf("Failed to insert snapshot: %v", err)
-	}
+	c.Start()
 
 	router := gin.Default()
 	router.GET("/latest_data", api.GetLatestData)
